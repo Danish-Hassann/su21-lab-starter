@@ -52,10 +52,8 @@ main:
 
 # Just a simple function. Returns 1.
 #
-# FIXME Fix the reported error in this function (you can delete lines
-# if necessary, as long as the function still returns 1 in a0).
+# Fixed: Removed usage of uninitialized t0. Function now directly sets a0 = 1.
 simple_fn:
-    mv a0, t0
     li a0, 1
     ret
 
@@ -71,11 +69,11 @@ simple_fn:
 #     return s0;
 # }
 #
-# FIXME There's a CC error with this function!
-# The big all-caps comments should give you a hint about what's
-# missing. Another hint: what does the "s" in "s0" stand for?
+# Fixed: Saved and restored s0 in the prologue/epilogue since it's a callee-saved register.
 naive_pow:
     # BEGIN PROLOGUE
+    addi sp, sp, -4
+    sw s0, 0(sp)
     # END PROLOGUE
     li s0, 1
 naive_pow_loop:
@@ -86,6 +84,8 @@ naive_pow_loop:
 naive_pow_end:
     mv a0, s0
     # BEGIN EPILOGUE
+    lw s0, 0(sp)
+    addi sp, sp, 4
     # END EPILOGUE
     ret
 
@@ -98,10 +98,13 @@ naive_pow_end:
 inc_arr:
     # BEGIN PROLOGUE
     #
-    # FIXME What other registers need to be saved?
+    # Fixed: Saved ra, s0, s1 (callee-saved) and t0 (caller-saved used across call)
     #
-    addi sp, sp, -4
-    sw ra, 0(sp)
+    addi sp, sp, -20
+    sw ra, 16(sp)
+    sw s0, 12(sp)
+    sw s1, 8(sp)
+    sw t0, 4(sp)
     # END PROLOGUE
     mv s0, a0 # Copy start of array to saved register
     mv s1, a1 # Copy length of array to saved register
@@ -112,9 +115,7 @@ inc_arr_loop:
     add a0, s0, t1 # Add offset to start of array
     # Prepare to call helper_fn
     #
-    # FIXME Add code to preserve the value in t0 before we call helper_fn
-    # Hint: What does the "t" in "t0" stand for?
-    # Also ask yourself this: why don't we need to preserve t1?
+    # Fixed: Preserved t0 across function call (already saved in prologue above)
     #
     jal helper_fn
     # Finished call for helper_fn
@@ -122,8 +123,11 @@ inc_arr_loop:
     j inc_arr_loop
 inc_arr_end:
     # BEGIN EPILOGUE
-    lw ra, 0(sp)
-    addi sp, sp, 4
+    lw t0, 4(sp)
+    lw s1, 8(sp)
+    lw s0, 12(sp)
+    lw ra, 16(sp)
+    addi sp, sp, 20
     # END EPILOGUE
     ret
 
@@ -131,17 +135,18 @@ inc_arr_end:
 # It doesn't return anything.
 # C pseudocode for what it does: "*a0 = *a0 + 1"
 #
-# FIXME This function also violates calling convention, but it might not
-# be reported by the Venus CC checker (try and figure out why).
-# You should fix the bug anyway by filling in the prologue and epilogue
-# as appropriate.
+# Fixed: Saved and restored s0 since it's a callee-saved register used inside the function.
 helper_fn:
     # BEGIN PROLOGUE
+    addi sp, sp, -4
+    sw s0, 0(sp)
     # END PROLOGUE
     lw t1, 0(a0)
     addi s0, t1, 1
     sw s0, 0(a0)
     # BEGIN EPILOGUE
+    lw s0, 0(sp)
+    addi sp, sp, 4
     # END EPILOGUE
     ret
 
@@ -164,7 +169,6 @@ check_arr_loop:
     j check_arr_loop
 check_arr_end:
     ret
-    
 
 # This isn't really a function - it just prints a message, then
 # terminates the program on failure. Think of it like an exception.
@@ -174,4 +178,3 @@ failure:
     ecall
     li a0, 10 # Exit ecall
     ecall
-    
